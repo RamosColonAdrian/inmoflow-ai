@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: inmoflow-postgres
+    environment:
+      POSTGRES_DB: inmoflow
+      POSTGRES_USER: inmoflow
+      POSTGRES_PASSWORD: inmoflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - inmoflow_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  inmoflow_postgres_data:
