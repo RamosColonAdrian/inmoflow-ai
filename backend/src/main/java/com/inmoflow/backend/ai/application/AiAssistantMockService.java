@@ -16,10 +16,10 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AiAssistantMockService {
 
-    private static final String MOCK_RESPONSE = "Hola, gracias por tu interes. El inmueble sigue disponible. \u00bfTe gustaria agendar una visita esta semana?";
     private static final double MOCK_CONFIDENCE = 0.85;
 
     private final ConversationService conversationService;
+    private final AiMockResponseProvider aiMockResponseProvider;
 
     @Transactional(readOnly = true)
     public AiSuggestedResponse suggestResponse(UUID conversationId) {
@@ -27,7 +27,7 @@ public class AiAssistantMockService {
 
         return new AiSuggestedResponse(
                 conversationId,
-                MOCK_RESPONSE,
+                aiMockResponseProvider.response(),
                 AiIntent.ASK_VISIT.name(),
                 MOCK_CONFIDENCE,
                 false
@@ -38,7 +38,7 @@ public class AiAssistantMockService {
     public Message sendResponse(UUID conversationId) {
         CreateMessageCommand command = new CreateMessageCommand(
                 SenderType.BOT,
-                MOCK_RESPONSE,
+                aiMockResponseProvider.response(),
                 true
         );
 
