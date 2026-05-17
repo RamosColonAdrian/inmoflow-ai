@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
-import { apiClient, type Lead } from "@/lib/api-client";
+import { apiClient, type Conversation, type Lead } from "@/lib/api-client";
 
 const columns = [
   "Name",
@@ -12,6 +13,7 @@ const columns = [
   "Status",
   "Score",
   "Created",
+  "Conversation",
 ];
 
 function formatLabel(value: string) {
@@ -31,8 +33,15 @@ function formatDate(value: string) {
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const conversationsByLeadId = useMemo(() => {
+    return new Map(
+      conversations.map((conversation) => [conversation.leadId, conversation]),
+    );
+  }, [conversations]);
 
   useEffect(() => {
     let isMounted = true;
@@ -42,10 +51,14 @@ export default function LeadsPage() {
         setIsLoading(true);
         setError(null);
 
-        const response = await apiClient.getLeads(0, 20);
+        const [leadsResponse, conversationsResponse] = await Promise.all([
+          apiClient.getLeads(0, 20),
+          apiClient.getConversations(0, 100),
+        ]);
 
         if (isMounted) {
-          setLeads(response.content);
+          setLeads(leadsResponse.content);
+          setConversations(conversationsResponse.content);
         }
       } catch (loadError) {
         if (isMounted) {
@@ -122,33 +135,51 @@ export default function LeadsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
-                  {leads.map((lead) => (
-                    <tr key={lead.id} className="hover:bg-slate-50">
-                      <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-950">
-                        {lead.name}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-slate-600">
-                        {lead.email}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-slate-600">
-                        {lead.phone}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-slate-600">
-                        {formatLabel(lead.source)}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3">
-                        <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-                          {formatLabel(lead.status)}
-                        </span>
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-slate-600">
-                        {lead.score ?? "-"}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-slate-600">
-                        {formatDate(lead.createdAt)}
-                      </td>
-                    </tr>
-                  ))}
+                  {leads.map((lead) => {
+                    const conversation = conversationsByLeadId.get(lead.id);
+
+                    return (
+                      <tr key={lead.id} className="hover:bg-slate-50">
+                        <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-950">
+                          {lead.name}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-slate-600">
+                          {lead.email}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-slate-600">
+                          {lead.phone}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-slate-600">
+                          {formatLabel(lead.source)}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3">
+                          <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                            {formatLabel(lead.status)}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-slate-600">
+                          {lead.score ?? "-"}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-slate-600">
+                          {formatDate(lead.createdAt)}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3">
+                          {conversation ? (
+                            <Link
+                              href={`/dashboard/conversations?conversationId=${conversation.id}`}
+                              className="inline-flex rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                            >
+                              Ver conversacion
+                            </Link>
+                          ) : (
+                            <span className="inline-flex rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500">
+                              Sin conversacion
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
