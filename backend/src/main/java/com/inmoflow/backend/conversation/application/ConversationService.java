@@ -7,6 +7,8 @@ import com.inmoflow.backend.conversation.domain.Message;
 import com.inmoflow.backend.conversation.infrastructure.ConversationRepository;
 import com.inmoflow.backend.conversation.infrastructure.MessageRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,8 +35,8 @@ public class ConversationService {
     }
 
     @Transactional(readOnly = true)
-    public List<Conversation> findAll() {
-        return conversationRepository.findAll();
+    public Page<Conversation> findAll(Pageable pageable) {
+        return conversationRepository.findAll(pageable);
     }
 
     @Transactional(readOnly = true)

@@ -4,10 +4,10 @@ import com.inmoflow.backend.agency.api.request.CreateAgencyRequest;
 import com.inmoflow.backend.agency.domain.Agency;
 import com.inmoflow.backend.agency.infrastructure.AgencyRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -28,7 +28,7 @@ public class AgencyService {
     }
 
     @Transactional(readOnly = true)
-    public List<Agency> findAll() {
-        return agencyRepository.findAll();
+    public Page<Agency> findAll(Pageable pageable) {
+        return agencyRepository.findAll(pageable);
     }
 }
