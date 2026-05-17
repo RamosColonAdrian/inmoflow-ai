@@ -8,7 +8,7 @@ const navigationItems = [
   { label: "Agencies", href: "#" },
   { label: "Properties", href: "/dashboard/properties" },
   { label: "Leads", href: "/dashboard/leads" },
-  { label: "Conversations", href: "#" },
+  { label: "Conversations", href: "/dashboard/conversations" },
   { label: "AI Assistant", href: "#" },
   { label: "Settings", href: "#" },
 ];

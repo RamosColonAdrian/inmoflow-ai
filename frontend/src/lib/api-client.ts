@@ -67,6 +67,29 @@ export type Property = {
   updatedAt: string;
 };
 
+export type ConversationChannel =
+  | "EMAIL"
+  | "WHATSAPP"
+  | "PHONE"
+  | "WEB_CHAT"
+  | "MANUAL";
+
+export type ConversationStatus =
+  | "OPEN"
+  | "WAITING_LEAD"
+  | "WAITING_AGENT"
+  | "CLOSED"
+  | "NEEDS_HUMAN";
+
+export type Conversation = {
+  id: string;
+  leadId: string;
+  channel: ConversationChannel;
+  status: ConversationStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type PageResponse<T> = {
   content: T[];
   page: number;
@@ -108,6 +131,11 @@ export const apiClient = {
   getProperties(page = 0, size = 20) {
     return request<PageResponse<Property>>(
       `/api/properties?page=${page}&size=${size}`,
+    );
+  },
+  getConversations(page = 0, size = 20) {
+    return request<PageResponse<Conversation>>(
+      `/api/conversations?page=${page}&size=${size}`,
     );
   },
 };
