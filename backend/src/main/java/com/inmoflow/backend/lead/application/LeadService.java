@@ -1,6 +1,5 @@
 package com.inmoflow.backend.lead.application;
 
-import com.inmoflow.backend.lead.api.request.CreateLeadRequest;
 import com.inmoflow.backend.lead.domain.Lead;
 import com.inmoflow.backend.lead.infrastructure.LeadRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,19 +15,19 @@ public class LeadService {
     private final LeadRepository leadRepository;
 
     @Transactional
-    public Lead create(CreateLeadRequest request) {
+    public Lead create(CreateLeadCommand command) {
         Lead lead = Lead.builder()
-                .agencyId(request.agencyId())
-                .propertyId(request.propertyId())
-                .name(request.name())
-                .email(request.email())
-                .phone(request.phone())
-                .source(request.source())
-                .status(request.status())
-                .message(request.message())
-                .budget(request.budget())
-                .desiredZone(request.desiredZone())
-                .score(request.score())
+                .agencyId(command.agencyId())
+                .propertyId(command.propertyId())
+                .name(command.name())
+                .email(command.email())
+                .phone(command.phone())
+                .source(command.source())
+                .status(command.status())
+                .message(command.message())
+                .budget(command.budget())
+                .desiredZone(command.desiredZone())
+                .score(command.score())
                 .build();
 
         return leadRepository.save(lead);

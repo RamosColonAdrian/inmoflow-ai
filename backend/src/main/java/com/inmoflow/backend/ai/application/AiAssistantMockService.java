@@ -2,7 +2,7 @@ package com.inmoflow.backend.ai.application;
 
 import com.inmoflow.backend.ai.api.AiSuggestedResponse;
 import com.inmoflow.backend.ai.domain.AiIntent;
-import com.inmoflow.backend.conversation.api.request.CreateMessageRequest;
+import com.inmoflow.backend.conversation.application.CreateMessageCommand;
 import com.inmoflow.backend.conversation.application.ConversationService;
 import com.inmoflow.backend.conversation.domain.Message;
 import com.inmoflow.backend.conversation.domain.SenderType;
@@ -36,12 +36,12 @@ public class AiAssistantMockService {
 
     @Transactional
     public Message sendResponse(UUID conversationId) {
-        CreateMessageRequest request = new CreateMessageRequest(
+        CreateMessageCommand command = new CreateMessageCommand(
                 SenderType.BOT,
                 MOCK_RESPONSE,
                 true
         );
 
-        return conversationService.addMessage(conversationId, request);
+        return conversationService.addMessage(conversationId, command);
     }
 }

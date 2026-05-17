@@ -1,6 +1,5 @@
 package com.inmoflow.backend.agency.application;
 
-import com.inmoflow.backend.agency.api.request.CreateAgencyRequest;
 import com.inmoflow.backend.agency.domain.Agency;
 import com.inmoflow.backend.agency.infrastructure.AgencyRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,12 +15,12 @@ public class AgencyService {
     private final AgencyRepository agencyRepository;
 
     @Transactional
-    public Agency create(CreateAgencyRequest request) {
+    public Agency create(CreateAgencyCommand command) {
         Agency agency = Agency.builder()
-                .name(request.name())
-                .email(request.email())
-                .phone(request.phone())
-                .website(request.website())
+                .name(command.name())
+                .email(command.email())
+                .phone(command.phone())
+                .website(command.website())
                 .build();
 
         return agencyRepository.save(agency);

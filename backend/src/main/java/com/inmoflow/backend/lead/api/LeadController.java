@@ -2,6 +2,7 @@ package com.inmoflow.backend.lead.api;
 
 import com.inmoflow.backend.lead.api.request.CreateLeadRequest;
 import com.inmoflow.backend.lead.api.response.LeadResponse;
+import com.inmoflow.backend.lead.application.CreateLeadCommand;
 import com.inmoflow.backend.lead.application.LeadService;
 import com.inmoflow.backend.shared.api.PageResponse;
 import jakarta.validation.Valid;
@@ -22,7 +23,21 @@ public class LeadController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public LeadResponse create(@Valid @RequestBody CreateLeadRequest request) {
-        return LeadResponse.from(leadService.create(request));
+        CreateLeadCommand command = new CreateLeadCommand(
+                request.agencyId(),
+                request.propertyId(),
+                request.name(),
+                request.email(),
+                request.phone(),
+                request.source(),
+                request.status(),
+                request.message(),
+                request.budget(),
+                request.desiredZone(),
+                request.score()
+        );
+
+        return LeadResponse.from(leadService.create(command));
     }
 
     @GetMapping

@@ -1,6 +1,5 @@
 package com.inmoflow.backend.property.application;
 
-import com.inmoflow.backend.property.api.request.CreatePropertyRequest;
 import com.inmoflow.backend.property.domain.Property;
 import com.inmoflow.backend.property.infrastructure.PropertyRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,22 +15,22 @@ public class PropertyService {
     private final PropertyRepository propertyRepository;
 
     @Transactional
-    public Property create(CreatePropertyRequest request) {
+    public Property create(CreatePropertyCommand command) {
         Property property = Property.builder()
-                .agencyId(request.agencyId())
-                .reference(request.reference())
-                .title(request.title())
-                .description(request.description())
-                .price(request.price())
-                .city(request.city())
-                .zone(request.zone())
-                .address(request.address())
-                .rooms(request.rooms())
-                .bathrooms(request.bathrooms())
-                .squareMeters(request.squareMeters())
-                .propertyType(request.propertyType())
-                .operationType(request.operationType())
-                .available(request.available())
+                .agencyId(command.agencyId())
+                .reference(command.reference())
+                .title(command.title())
+                .description(command.description())
+                .price(command.price())
+                .city(command.city())
+                .zone(command.zone())
+                .address(command.address())
+                .rooms(command.rooms())
+                .bathrooms(command.bathrooms())
+                .squareMeters(command.squareMeters())
+                .propertyType(command.propertyType())
+                .operationType(command.operationType())
+                .available(command.available())
                 .build();
 
         return propertyRepository.save(property);

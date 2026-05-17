@@ -4,6 +4,8 @@ import com.inmoflow.backend.conversation.api.request.CreateConversationRequest;
 import com.inmoflow.backend.conversation.api.request.CreateMessageRequest;
 import com.inmoflow.backend.conversation.api.response.ConversationResponse;
 import com.inmoflow.backend.conversation.api.response.MessageResponse;
+import com.inmoflow.backend.conversation.application.CreateConversationCommand;
+import com.inmoflow.backend.conversation.application.CreateMessageCommand;
 import com.inmoflow.backend.conversation.application.ConversationService;
 import com.inmoflow.backend.shared.api.PageResponse;
 import jakarta.validation.Valid;
@@ -27,7 +29,13 @@ public class ConversationController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ConversationResponse create(@Valid @RequestBody CreateConversationRequest request) {
-        return ConversationResponse.from(conversationService.create(request));
+        CreateConversationCommand command = new CreateConversationCommand(
+                request.leadId(),
+                request.channel(),
+                request.status()
+        );
+
+        return ConversationResponse.from(conversationService.create(command));
     }
 
     @GetMapping
@@ -53,7 +61,13 @@ public class ConversationController {
             @PathVariable UUID conversationId,
             @Valid @RequestBody CreateMessageRequest request
     ) {
-        return MessageResponse.from(conversationService.addMessage(conversationId, request));
+        CreateMessageCommand command = new CreateMessageCommand(
+                request.senderType(),
+                request.content(),
+                request.aiGenerated()
+        );
+
+        return MessageResponse.from(conversationService.addMessage(conversationId, command));
     }
 
     @GetMapping("/{conversationId}/messages")

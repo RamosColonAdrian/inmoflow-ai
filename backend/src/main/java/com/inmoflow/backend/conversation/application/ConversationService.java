@@ -1,7 +1,5 @@
 package com.inmoflow.backend.conversation.application;
 
-import com.inmoflow.backend.conversation.api.request.CreateConversationRequest;
-import com.inmoflow.backend.conversation.api.request.CreateMessageRequest;
 import com.inmoflow.backend.conversation.domain.Conversation;
 import com.inmoflow.backend.conversation.domain.Message;
 import com.inmoflow.backend.conversation.infrastructure.ConversationRepository;
@@ -24,11 +22,11 @@ public class ConversationService {
     private final MessageRepository messageRepository;
 
     @Transactional
-    public Conversation create(CreateConversationRequest request) {
+    public Conversation create(CreateConversationCommand command) {
         Conversation conversation = Conversation.builder()
-                .leadId(request.leadId())
-                .channel(request.channel())
-                .status(request.status())
+                .leadId(command.leadId())
+                .channel(command.channel())
+                .status(command.status())
                 .build();
 
         return conversationRepository.save(conversation);
@@ -45,16 +43,16 @@ public class ConversationService {
     }
 
     @Transactional
-    public Message addMessage(UUID conversationId, CreateMessageRequest request) {
+    public Message addMessage(UUID conversationId, CreateMessageCommand command) {
         if (!conversationRepository.existsById(conversationId)) {
             throw new NoSuchElementException("Conversation not found: " + conversationId);
         }
 
         Message message = Message.builder()
                 .conversationId(conversationId)
-                .senderType(request.senderType())
-                .content(request.content())
-                .aiGenerated(request.aiGenerated())
+                .senderType(command.senderType())
+                .content(command.content())
+                .aiGenerated(command.aiGenerated())
                 .build();
 
         return messageRepository.save(message);
