@@ -4,10 +4,10 @@ import com.inmoflow.backend.lead.api.request.CreateLeadRequest;
 import com.inmoflow.backend.lead.domain.Lead;
 import com.inmoflow.backend.lead.infrastructure.LeadRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -35,7 +35,7 @@ public class LeadService {
     }
 
     @Transactional(readOnly = true)
-    public List<Lead> findAll() {
-        return leadRepository.findAll();
+    public Page<Lead> findAll(Pageable pageable) {
+        return leadRepository.findAll(pageable);
     }
 }

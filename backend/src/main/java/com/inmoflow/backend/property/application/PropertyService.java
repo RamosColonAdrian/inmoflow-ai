@@ -4,10 +4,10 @@ import com.inmoflow.backend.property.api.request.CreatePropertyRequest;
 import com.inmoflow.backend.property.domain.Property;
 import com.inmoflow.backend.property.infrastructure.PropertyRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -38,7 +38,7 @@ public class PropertyService {
     }
 
     @Transactional(readOnly = true)
-    public List<Property> findAll() {
-        return propertyRepository.findAll();
+    public Page<Property> findAll(Pageable pageable) {
+        return propertyRepository.findAll(pageable);
     }
 }
