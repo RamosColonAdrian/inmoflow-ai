@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import {
   apiClient,
   type Appointment,
+  type AppointmentStatus,
   type Lead,
   type Property,
 } from "@/lib/api-client";
@@ -61,12 +62,61 @@ function getStatusClass(appointment: Appointment) {
   return "bg-slate-100 text-slate-700";
 }
 
+type StatusAction = {
+  label: string;
+  status: AppointmentStatus;
+  className: string;
+};
+
+function getStatusActions(status: AppointmentStatus): StatusAction[] {
+  if (status === "REQUESTED" || status === "PROPOSED") {
+    return [
+      {
+        label: "Confirmar",
+        status: "CONFIRMED",
+        className:
+          "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100",
+      },
+      {
+        label: "Cancelar",
+        status: "CANCELLED",
+        className:
+          "border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 hover:bg-rose-100",
+      },
+    ];
+  }
+
+  if (status === "CONFIRMED") {
+    return [
+      {
+        label: "Completar",
+        status: "COMPLETED",
+        className:
+          "border-blue-200 bg-blue-50 text-blue-700 hover:border-blue-300 hover:bg-blue-100",
+      },
+      {
+        label: "Cancelar",
+        status: "CANCELLED",
+        className:
+          "border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 hover:bg-rose-100",
+      },
+    ];
+  }
+
+  return [];
+}
+
 export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [updatingAction, setUpdatingAction] = useState<{
+    appointmentId: string;
+    status: AppointmentStatus;
+  } | null>(null);
 
   const leadsById = useMemo(() => {
     return new Map(leads.map((lead) => [lead.id, lead]));
@@ -76,12 +126,14 @@ export default function AppointmentsPage() {
     return new Map(properties.map((property) => [property.id, property]));
   }, [properties]);
 
-  useEffect(() => {
-    let isMounted = true;
+  const loadAppointments = useCallback(
+    async (options: { showLoading?: boolean; isMounted?: () => boolean } = {}) => {
+      const { showLoading = true, isMounted = () => true } = options;
 
-    async function loadAppointments() {
       try {
-        setIsLoading(true);
+        if (showLoading) {
+          setIsLoading(true);
+        }
         setError(null);
 
         const [appointmentsResponse, leadsResponse, propertiesResponse] =
@@ -91,13 +143,13 @@ export default function AppointmentsPage() {
             apiClient.getProperties(0, 100),
           ]);
 
-        if (isMounted) {
+        if (isMounted()) {
           setAppointments(appointmentsResponse.content);
           setLeads(leadsResponse.content);
           setProperties(propertiesResponse.content);
         }
       } catch (loadError) {
-        if (isMounted) {
+        if (isMounted()) {
           setError(
             loadError instanceof Error
               ? loadError.message
@@ -105,18 +157,44 @@ export default function AppointmentsPage() {
           );
         }
       } finally {
-        if (isMounted) {
+        if (showLoading && isMounted()) {
           setIsLoading(false);
         }
       }
-    }
+    },
+    [],
+  );
 
-    loadAppointments();
+  useEffect(() => {
+    let isMounted = true;
+
+    loadAppointments({ isMounted: () => isMounted });
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [loadAppointments]);
+
+  async function handleStatusUpdate(
+    appointmentId: string,
+    status: AppointmentStatus,
+  ) {
+    try {
+      setStatusError(null);
+      setUpdatingAction({ appointmentId, status });
+
+      await apiClient.updateAppointmentStatus(appointmentId, status);
+      await loadAppointments({ showLoading: false });
+    } catch (updateError) {
+      setStatusError(
+        updateError instanceof Error
+          ? updateError.message
+          : "No se pudo actualizar el estado de la visita.",
+      );
+    } finally {
+      setUpdatingAction(null);
+    }
+  }
 
   return (
     <DashboardShell
@@ -134,6 +212,12 @@ export default function AppointmentsPage() {
             review and follow-up.
           </p>
         </div>
+
+        {statusError ? (
+          <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+            {statusError}
+          </div>
+        ) : null}
 
         <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
           {isLoading ? (
@@ -163,6 +247,7 @@ export default function AppointmentsPage() {
                 const lead = leadsById.get(appointment.leadId);
                 const property = propertiesById.get(appointment.propertyId);
                 const isPendingRequest = appointment.status === "REQUESTED";
+                const statusActions = getStatusActions(appointment.status);
 
                 return (
                   <article
@@ -197,12 +282,36 @@ export default function AppointmentsPage() {
                         </p>
                       </div>
 
-                      <Link
-                        href={`/dashboard/conversations?conversationId=${appointment.conversationId}`}
-                        className="inline-flex w-fit rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-400 hover:bg-white"
-                      >
-                        Ver conversacion
-                      </Link>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {statusActions.map((action) => {
+                          const isUpdating =
+                            updatingAction?.appointmentId === appointment.id &&
+                            updatingAction.status === action.status;
+                          const isAppointmentUpdating =
+                            updatingAction?.appointmentId === appointment.id;
+
+                          return (
+                            <button
+                              key={action.status}
+                              type="button"
+                              disabled={isAppointmentUpdating}
+                              onClick={() =>
+                                handleStatusUpdate(appointment.id, action.status)
+                              }
+                              className={`inline-flex rounded-lg border px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${action.className}`}
+                            >
+                              {isUpdating ? "Guardando..." : action.label}
+                            </button>
+                          );
+                        })}
+
+                        <Link
+                          href={`/dashboard/conversations?conversationId=${appointment.conversationId}`}
+                          className="inline-flex w-fit rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-400 hover:bg-white"
+                        >
+                          Ver conversacion
+                        </Link>
+                      </div>
                     </div>
 
                     <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1.2fr]">

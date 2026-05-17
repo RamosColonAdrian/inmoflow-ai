@@ -179,6 +179,18 @@ export const apiClient = {
       `/api/appointments?page=${page}&size=${size}`,
     );
   },
+  updateAppointmentStatus(
+    appointmentId: string,
+    status: AppointmentStatus,
+  ) {
+    return request<Appointment>(`/api/appointments/${appointmentId}/status`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ status }),
+    });
+  },
   createConversationMessage(
     conversationId: string,
     payload: {
