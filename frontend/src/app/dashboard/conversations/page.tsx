@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import {
   apiClient,
@@ -58,7 +59,9 @@ function getMessageBubbleClass(senderType: SenderType) {
   }
 }
 
-export default function ConversationsPage() {
+function ConversationsContent() {
+  const searchParams = useSearchParams();
+  const requestedConversationId = searchParams.get("conversationId");
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<
     string | null
@@ -100,11 +103,17 @@ export default function ConversationsPage() {
         setIsLoadingConversations(true);
         setConversationsError(null);
 
-        const response = await apiClient.getConversations(0, 20);
+        const response = await apiClient.getConversations(0, 100);
 
         if (isMounted) {
+          const selectedFromUrl = response.content.find(
+            (conversation) => conversation.id === requestedConversationId,
+          );
+
           setConversations(response.content);
-          setSelectedConversationId(response.content[0]?.id ?? null);
+          setSelectedConversationId(
+            selectedFromUrl?.id ?? response.content[0]?.id ?? null,
+          );
         }
       } catch (loadError) {
         if (isMounted) {
@@ -126,7 +135,7 @@ export default function ConversationsPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [requestedConversationId]);
 
   useEffect(() => {
     if (!selectedConversationId) {
@@ -230,7 +239,7 @@ export default function ConversationsPage() {
                 Conversations
               </h3>
               <p className="mt-1 text-xs text-slate-600">
-                Latest 20 conversations from the backend.
+                Latest conversations from the backend.
               </p>
             </div>
 
@@ -436,5 +445,13 @@ export default function ConversationsPage() {
         </section>
       </section>
     </DashboardShell>
+  );
+}
+
+export default function ConversationsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ConversationsContent />
+    </Suspense>
   );
 }
