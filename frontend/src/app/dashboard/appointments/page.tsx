@@ -25,8 +25,14 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-function shortenId(value: string) {
-  return value.length > 12 ? `${value.slice(0, 8)}...${value.slice(-4)}` : value;
+function shortenId(value?: string | null) {
+  if (!value) {
+    return "-";
+  }
+
+  return value.length > 12
+    ? `${value.slice(0, 8)}...${value.slice(-4)}`
+    : value;
 }
 
 function formatLocation(property: Property | undefined) {
