@@ -15,6 +15,7 @@ public class ConfiguredAiResponseGenerator implements AiResponseGenerator {
 
     private final OllamaAiResponseGenerator ollamaAiResponseGenerator;
     private final MockAiResponseGenerator mockAiResponseGenerator;
+    private final ControlledVisitResponseGenerator controlledVisitResponseGenerator;
 
     @Value("${ai.provider:mock}")
     private String aiProvider;
@@ -26,6 +27,11 @@ public class ConfiguredAiResponseGenerator implements AiResponseGenerator {
 
     @Override
     public String generateResponse(AiResponseContext context) {
+        return controlledVisitResponseGenerator.generateResponse(context)
+                .orElseGet(() -> generateProviderResponse(context));
+    }
+
+    private String generateProviderResponse(AiResponseContext context) {
         if (OLLAMA_PROVIDER.equalsIgnoreCase(aiProvider)) {
             try {
                 return ollamaAiResponseGenerator.generateResponse(context);
