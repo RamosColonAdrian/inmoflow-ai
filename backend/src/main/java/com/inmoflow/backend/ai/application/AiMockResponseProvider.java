@@ -5,9 +5,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class AiMockResponseProvider {
 
-    private static final String MOCK_RESPONSE = "Hola, gracias por tu interes. El inmueble sigue disponible. \u00bfTe gustaria agendar una visita esta semana?";
+    private final MockAiResponseGenerator mockAiResponseGenerator;
+
+    public AiMockResponseProvider(MockAiResponseGenerator mockAiResponseGenerator) {
+        this.mockAiResponseGenerator = mockAiResponseGenerator;
+    }
 
     public String response() {
-        return MOCK_RESPONSE;
+        return mockAiResponseGenerator.response();
     }
 }
