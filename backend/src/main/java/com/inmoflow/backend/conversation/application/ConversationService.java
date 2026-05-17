@@ -11,6 +11,7 @@ import com.inmoflow.backend.conversation.domain.Message;
 import com.inmoflow.backend.conversation.domain.SenderType;
 import com.inmoflow.backend.conversation.infrastructure.ConversationRepository;
 import com.inmoflow.backend.conversation.infrastructure.MessageRepository;
+import com.inmoflow.backend.lead.application.LeadService;
 import com.inmoflow.backend.lead.domain.Lead;
 import com.inmoflow.backend.lead.infrastructure.LeadRepository;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +36,7 @@ public class ConversationService {
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
     private final LeadRepository leadRepository;
+    private final LeadService leadService;
     private final AiResponseGenerator aiResponseGenerator;
     private final ControlledVisitResponseGenerator controlledVisitResponseGenerator;
     private final AppointmentService appointmentService;
@@ -78,7 +80,7 @@ public class ConversationService {
                     true
             );
             saveMessage(conversationId, aiResponseCommand);
-            controlledVisitResponse.ifPresent(response -> createAppointmentIfRequested(conversation, context.lead(), response));
+            controlledVisitResponse.ifPresent(response -> handleVisitInterest(conversation, context.lead(), response));
         }
 
         return message;
@@ -105,8 +107,13 @@ public class ConversationService {
         return new AiResponseContext(leadMessage.getContent(), lead, recentMessages);
     }
 
-    private void createAppointmentIfRequested(Conversation conversation, Lead lead, ControlledVisitResponse response) {
-        if (lead == null || !response.hasRequestedDateText()) {
+    private void handleVisitInterest(Conversation conversation, Lead lead, ControlledVisitResponse response) {
+        if (lead == null) {
+            return;
+        }
+
+        if (!response.hasRequestedDateText()) {
+            leadService.markContactedForVisitInterest(lead.getId());
             return;
         }
 
@@ -119,7 +126,8 @@ public class ConversationService {
                 AUTOMATIC_APPOINTMENT_NOTES
         );
 
-        appointmentService.createRequestedIfAbsent(command);
+        appointmentService.createRequestedIfAbsent(command)
+                .ifPresent(appointment -> leadService.qualifyForVisitRequest(lead.getId()));
     }
 
     @Transactional(readOnly = true)

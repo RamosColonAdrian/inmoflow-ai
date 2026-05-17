@@ -1,7 +1,9 @@
 package com.inmoflow.backend.conversation.application;
 
 import com.inmoflow.backend.ai.application.AiResponseGenerator;
+import com.inmoflow.backend.ai.application.AiResponseContext;
 import com.inmoflow.backend.ai.application.ControlledVisitResponseGenerator;
+import com.inmoflow.backend.appointment.domain.Appointment;
 import com.inmoflow.backend.appointment.application.AppointmentService;
 import com.inmoflow.backend.appointment.application.CreateAppointmentCommand;
 import com.inmoflow.backend.conversation.domain.Conversation;
@@ -11,6 +13,7 @@ import com.inmoflow.backend.conversation.domain.Message;
 import com.inmoflow.backend.conversation.domain.SenderType;
 import com.inmoflow.backend.conversation.infrastructure.ConversationRepository;
 import com.inmoflow.backend.conversation.infrastructure.MessageRepository;
+import com.inmoflow.backend.lead.application.LeadService;
 import com.inmoflow.backend.lead.domain.Lead;
 import com.inmoflow.backend.lead.infrastructure.LeadRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,6 +47,9 @@ class ConversationServiceTest {
     private LeadRepository leadRepository;
 
     @Mock
+    private LeadService leadService;
+
+    @Mock
     private AiResponseGenerator aiResponseGenerator;
 
     @Mock
@@ -57,6 +63,7 @@ class ConversationServiceTest {
                 conversationRepository,
                 messageRepository,
                 leadRepository,
+                leadService,
                 aiResponseGenerator,
                 new ControlledVisitResponseGenerator(),
                 appointmentService
@@ -80,6 +87,8 @@ class ConversationServiceTest {
         when(leadRepository.findById(leadId)).thenReturn(Optional.of(lead));
         when(messageRepository.findTop10ByConversationIdOrderBySentAtDesc(conversationId)).thenReturn(List.of());
         when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> savedMessage(invocation.getArgument(0)));
+        when(appointmentService.createRequestedIfAbsent(any(CreateAppointmentCommand.class)))
+                .thenReturn(Optional.of(Appointment.builder().id(UUID.randomUUID()).build()));
 
         conversationService.addMessage(conversationId, new CreateMessageCommand(
                 SenderType.LEAD,
@@ -96,6 +105,7 @@ class ConversationServiceTest {
         assertThat(command.conversationId()).isEqualTo(conversationId);
         assertThat(command.requestedDateText()).isEqualTo("jueves por la tarde");
         assertThat(command.notes()).isEqualTo("Appointment requested automatically from lead message");
+        verify(leadService).qualifyForVisitRequest(leadId);
     }
 
     @Test
@@ -119,6 +129,33 @@ class ConversationServiceTest {
         ));
 
         verify(appointmentService, never()).createRequestedIfAbsent(any(CreateAppointmentCommand.class));
+        verify(leadService).markContactedForVisitInterest(leadId);
+    }
+
+    @Test
+    void doesNotUpdateLeadWhenMessageHasNoVisitIntent() {
+        UUID conversationId = UUID.randomUUID();
+        UUID leadId = UUID.randomUUID();
+        Conversation conversation = conversation(conversationId, leadId);
+        Lead lead = Lead.builder()
+                .id(leadId)
+                .agencyId(UUID.randomUUID())
+                .build();
+        when(conversationRepository.findById(conversationId)).thenReturn(Optional.of(conversation));
+        when(leadRepository.findById(leadId)).thenReturn(Optional.of(lead));
+        when(messageRepository.findTop10ByConversationIdOrderBySentAtDesc(conversationId)).thenReturn(List.of());
+        when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> savedMessage(invocation.getArgument(0)));
+        when(aiResponseGenerator.generateResponse(any(AiResponseContext.class))).thenReturn("Respuesta generica");
+
+        conversationService.addMessage(conversationId, new CreateMessageCommand(
+                SenderType.LEAD,
+                "Hola, me interesa saber mas del piso",
+                false
+        ));
+
+        verify(appointmentService, never()).createRequestedIfAbsent(any(CreateAppointmentCommand.class));
+        verify(leadService, never()).markContactedForVisitInterest(any(UUID.class));
+        verify(leadService, never()).qualifyForVisitRequest(any(UUID.class));
     }
 
     private Conversation conversation(UUID conversationId, UUID leadId) {
