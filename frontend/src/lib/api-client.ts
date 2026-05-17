@@ -34,6 +34,39 @@ export type Lead = {
   updatedAt: string;
 };
 
+export type PropertyType =
+  | "APARTMENT"
+  | "HOUSE"
+  | "ROOM"
+  | "LAND"
+  | "COMMERCIAL"
+  | "OFFICE"
+  | "GARAGE"
+  | "STORAGE"
+  | "OTHER";
+
+export type OperationType = "SALE" | "RENT";
+
+export type Property = {
+  id: string;
+  agencyId: string;
+  reference: string;
+  title: string;
+  description: string | null;
+  price: number | string;
+  city: string;
+  zone: string;
+  address: string | null;
+  rooms: number | null;
+  bathrooms: number | null;
+  squareMeters: number | null;
+  propertyType: PropertyType;
+  operationType: OperationType;
+  available: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type PageResponse<T> = {
   content: T[];
   page: number;
@@ -71,5 +104,10 @@ async function request<T>(path: string): Promise<T> {
 export const apiClient = {
   getLeads(page = 0, size = 20) {
     return request<PageResponse<Lead>>(`/api/leads?page=${page}&size=${size}`);
+  },
+  getProperties(page = 0, size = 20) {
+    return request<PageResponse<Property>>(
+      `/api/properties?page=${page}&size=${size}`,
+    );
   },
 };
