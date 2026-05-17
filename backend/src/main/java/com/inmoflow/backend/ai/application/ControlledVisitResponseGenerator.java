@@ -39,6 +39,10 @@ public class ControlledVisitResponseGenerator {
     );
 
     public Optional<String> generateResponse(AiResponseContext context) {
+        return generate(context).map(ControlledVisitResponse::response);
+    }
+
+    public Optional<ControlledVisitResponse> generate(AiResponseContext context) {
         String leadMessage = context.leadMessage();
         if (!hasVisitIntent(leadMessage)) {
             return Optional.empty();
@@ -46,7 +50,10 @@ public class ControlledVisitResponseGenerator {
 
         Optional<String> availability = extractAvailability(leadMessage);
         if (availability.isEmpty()) {
-            return Optional.of("Perfecto, podemos ayudarte a coordinar una visita. Podrias indicarme que dia o franja horaria te vendria mejor?");
+            return Optional.of(new ControlledVisitResponse(
+                    "Perfecto, podemos ayudarte a coordinar una visita. Podrias indicarme que dia o franja horaria te vendria mejor?",
+                    null
+            ));
         }
 
         String response = "Perfecto, he anotado que te vendria bien " + availability.get()
@@ -55,7 +62,7 @@ public class ControlledVisitResponseGenerator {
             response += " Podrias indicarme tu telefono para coordinar la visita?";
         }
 
-        return Optional.of(response);
+        return Optional.of(new ControlledVisitResponse(response, availability.get()));
     }
 
     private boolean hasVisitIntent(String message) {

@@ -2,6 +2,10 @@ package com.inmoflow.backend.conversation.application;
 
 import com.inmoflow.backend.ai.application.AiResponseContext;
 import com.inmoflow.backend.ai.application.AiResponseGenerator;
+import com.inmoflow.backend.ai.application.ControlledVisitResponse;
+import com.inmoflow.backend.ai.application.ControlledVisitResponseGenerator;
+import com.inmoflow.backend.appointment.application.AppointmentService;
+import com.inmoflow.backend.appointment.application.CreateAppointmentCommand;
 import com.inmoflow.backend.conversation.domain.Conversation;
 import com.inmoflow.backend.conversation.domain.Message;
 import com.inmoflow.backend.conversation.domain.SenderType;
@@ -19,16 +23,21 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class ConversationService {
 
+    private static final String AUTOMATIC_APPOINTMENT_NOTES = "Appointment requested automatically from lead message";
+
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
     private final LeadRepository leadRepository;
     private final AiResponseGenerator aiResponseGenerator;
+    private final ControlledVisitResponseGenerator controlledVisitResponseGenerator;
+    private final AppointmentService appointmentService;
 
     @Transactional
     public Conversation create(CreateConversationCommand command) {
@@ -60,12 +69,16 @@ public class ConversationService {
 
         if (command.senderType() == SenderType.LEAD) {
             AiResponseContext context = buildAiResponseContext(conversation, message);
+            Optional<ControlledVisitResponse> controlledVisitResponse = controlledVisitResponseGenerator.generate(context);
             CreateMessageCommand aiResponseCommand = new CreateMessageCommand(
                     SenderType.BOT,
-                    aiResponseGenerator.generateResponse(context),
+                    controlledVisitResponse
+                            .map(ControlledVisitResponse::response)
+                            .orElseGet(() -> aiResponseGenerator.generateResponse(context)),
                     true
             );
             saveMessage(conversationId, aiResponseCommand);
+            controlledVisitResponse.ifPresent(response -> createAppointmentIfRequested(conversation, context.lead(), response));
         }
 
         return message;
@@ -90,6 +103,23 @@ public class ConversationService {
         recentMessages.sort(Comparator.comparing(Message::getSentAt));
 
         return new AiResponseContext(leadMessage.getContent(), lead, recentMessages);
+    }
+
+    private void createAppointmentIfRequested(Conversation conversation, Lead lead, ControlledVisitResponse response) {
+        if (lead == null || !response.hasRequestedDateText()) {
+            return;
+        }
+
+        CreateAppointmentCommand command = new CreateAppointmentCommand(
+                lead.getAgencyId(),
+                conversation.getLeadId(),
+                lead.getPropertyId(),
+                conversation.getId(),
+                response.requestedDateText(),
+                AUTOMATIC_APPOINTMENT_NOTES
+        );
+
+        appointmentService.createRequestedIfAbsent(command);
     }
 
     @Transactional(readOnly = true)

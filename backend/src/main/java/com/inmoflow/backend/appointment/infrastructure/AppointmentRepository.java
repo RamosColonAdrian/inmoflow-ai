@@ -1,6 +1,7 @@
 package com.inmoflow.backend.appointment.infrastructure;
 
 import com.inmoflow.backend.appointment.domain.Appointment;
+import com.inmoflow.backend.appointment.domain.AppointmentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -11,4 +12,6 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
     List<Appointment> findByLeadId(UUID leadId);
 
     List<Appointment> findByConversationId(UUID conversationId);
+
+    boolean existsByConversationIdAndStatus(UUID conversationId, AppointmentStatus status);
 }
