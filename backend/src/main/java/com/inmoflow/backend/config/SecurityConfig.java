@@ -26,6 +26,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/leads", "/api/leads/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/leads", "/api/leads/**").permitAll()
 
+                        .requestMatchers(HttpMethod.GET, "/api/conversations", "/api/conversations/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/conversations", "/api/conversations/**").permitAll()
+
                         .anyRequest().authenticated()
                 )
                 .formLogin(AbstractHttpConfigurer::disable)
