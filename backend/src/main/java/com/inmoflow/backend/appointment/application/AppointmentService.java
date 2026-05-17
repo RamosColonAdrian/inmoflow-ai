@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -31,6 +32,15 @@ public class AppointmentService {
                 .build();
 
         return appointmentRepository.save(appointment);
+    }
+
+    @Transactional
+    public Optional<Appointment> createRequestedIfAbsent(CreateAppointmentCommand command) {
+        if (appointmentRepository.existsByConversationIdAndStatus(command.conversationId(), AppointmentStatus.REQUESTED)) {
+            return Optional.empty();
+        }
+
+        return Optional.of(create(command));
     }
 
     @Transactional(readOnly = true)
