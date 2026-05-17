@@ -101,6 +101,26 @@ export type Message = {
   sentAt: string;
 };
 
+export type AppointmentStatus =
+  | "REQUESTED"
+  | "PROPOSED"
+  | "CONFIRMED"
+  | "CANCELLED"
+  | "COMPLETED";
+
+export type Appointment = {
+  id: string;
+  agencyId: string;
+  leadId: string;
+  propertyId: string;
+  conversationId: string;
+  requestedDateText: string;
+  status: AppointmentStatus;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type PageResponse<T> = {
   content: T[];
   page: number;
@@ -153,6 +173,11 @@ export const apiClient = {
   },
   getConversationMessages(conversationId: string) {
     return request<Message[]>(`/api/conversations/${conversationId}/messages`);
+  },
+  getAppointments(page = 0, size = 20) {
+    return request<PageResponse<Appointment>>(
+      `/api/appointments?page=${page}&size=${size}`,
+    );
   },
   createConversationMessage(
     conversationId: string,
