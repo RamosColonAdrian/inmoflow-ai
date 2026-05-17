@@ -90,6 +90,17 @@ export type Conversation = {
   updatedAt: string;
 };
 
+export type SenderType = "LEAD" | "BOT" | "AGENT" | "SYSTEM";
+
+export type Message = {
+  id: string;
+  conversationId: string;
+  senderType: SenderType;
+  content: string;
+  aiGenerated: boolean;
+  sentAt: string;
+};
+
 export type PageResponse<T> = {
   content: T[];
   page: number;
@@ -110,10 +121,12 @@ function buildApiUrl(path: string) {
   return `${API_URL.replace(/\/$/, "")}${path}`;
 }
 
-async function request<T>(path: string): Promise<T> {
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(buildApiUrl(path), {
+    ...init,
     headers: {
       Accept: "application/json",
+      ...init?.headers,
     },
   });
 
@@ -137,5 +150,24 @@ export const apiClient = {
     return request<PageResponse<Conversation>>(
       `/api/conversations?page=${page}&size=${size}`,
     );
+  },
+  getConversationMessages(conversationId: string) {
+    return request<Message[]>(`/api/conversations/${conversationId}/messages`);
+  },
+  createConversationMessage(
+    conversationId: string,
+    payload: {
+      senderType: Extract<SenderType, "LEAD" | "AGENT">;
+      content: string;
+      aiGenerated: false;
+    },
+  ) {
+    return request<Message>(`/api/conversations/${conversationId}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
   },
 };
