@@ -21,9 +21,14 @@ public class ConfiguredAiResponseGenerator implements AiResponseGenerator {
 
     @Override
     public String generateResponse(String leadMessage) {
+        return generateResponse(new AiResponseContext(leadMessage, null, java.util.List.of()));
+    }
+
+    @Override
+    public String generateResponse(AiResponseContext context) {
         if (OLLAMA_PROVIDER.equalsIgnoreCase(aiProvider)) {
             try {
-                return ollamaAiResponseGenerator.generateResponse(leadMessage);
+                return ollamaAiResponseGenerator.generateResponse(context);
             } catch (RuntimeException exception) {
                 return mockAiResponseGenerator.response();
             }
