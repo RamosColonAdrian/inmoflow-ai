@@ -1,20 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
-import { apiClient, type Appointment } from "@/lib/api-client";
-
-const columns = [
-  "Fecha solicitada",
-  "Status",
-  "Lead",
-  "Property",
-  "Conversation",
-  "Notes",
-  "Created",
-  "Action",
-];
+import {
+  apiClient,
+  type Appointment,
+  type Lead,
+  type Property,
+} from "@/lib/api-client";
 
 function formatLabel(value: string) {
   return value
@@ -29,6 +23,20 @@ function formatDate(value: string) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+function shortenId(value: string) {
+  return value.length > 12 ? `${value.slice(0, 8)}...${value.slice(-4)}` : value;
+}
+
+function formatLocation(property: Property | undefined) {
+  if (!property) {
+    return "-";
+  }
+
+  const parts = [property.zone, property.city].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(", ") : "-";
 }
 
 function getStatusClass(appointment: Appointment) {
@@ -49,8 +57,18 @@ function getStatusClass(appointment: Appointment) {
 
 export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const leadsById = useMemo(() => {
+    return new Map(leads.map((lead) => [lead.id, lead]));
+  }, [leads]);
+
+  const propertiesById = useMemo(() => {
+    return new Map(properties.map((property) => [property.id, property]));
+  }, [properties]);
 
   useEffect(() => {
     let isMounted = true;
@@ -60,10 +78,17 @@ export default function AppointmentsPage() {
         setIsLoading(true);
         setError(null);
 
-        const response = await apiClient.getAppointments(0, 20);
+        const [appointmentsResponse, leadsResponse, propertiesResponse] =
+          await Promise.all([
+            apiClient.getAppointments(0, 20),
+            apiClient.getLeads(0, 100),
+            apiClient.getProperties(0, 100),
+          ]);
 
         if (isMounted) {
-          setAppointments(response.content);
+          setAppointments(appointmentsResponse.content);
+          setLeads(leadsResponse.content);
+          setProperties(propertiesResponse.content);
         }
       } catch (loadError) {
         if (isMounted) {
@@ -127,42 +152,27 @@ export default function AppointmentsPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-                <thead className="bg-slate-50">
-                  <tr>
-                    {columns.map((column) => (
-                      <th
-                        key={column}
-                        scope="col"
-                        className="whitespace-nowrap px-4 py-3 font-medium text-slate-600"
-                      >
-                        {column}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
-                  {appointments.map((appointment) => {
-                    const isPendingRequest =
-                      appointment.status === "REQUESTED";
+            <div className="divide-y divide-slate-100">
+              {appointments.map((appointment) => {
+                const lead = leadsById.get(appointment.leadId);
+                const property = propertiesById.get(appointment.propertyId);
+                const isPendingRequest = appointment.status === "REQUESTED";
 
-                    return (
-                      <tr
-                        key={appointment.id}
-                        className={`hover:bg-slate-50 ${
-                          isPendingRequest ? "bg-amber-50/50" : ""
-                        }`}
-                      >
-                        <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-950">
-                          {appointment.requestedDateText}
-                          {isPendingRequest ? (
-                            <p className="mt-1 text-xs font-medium text-amber-800">
-                              Pending visit request
-                            </p>
-                          ) : null}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3">
+                return (
+                  <article
+                    key={appointment.id}
+                    className={`p-4 transition hover:bg-slate-50 sm:p-5 ${
+                      isPendingRequest
+                        ? "border-l-4 border-amber-400 bg-amber-50/50"
+                        : "border-l-4 border-transparent bg-white"
+                    }`}
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-base font-semibold text-slate-950">
+                            {appointment.requestedDateText}
+                          </h3>
                           <span
                             className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getStatusClass(
                               appointment,
@@ -170,37 +180,71 @@ export default function AppointmentsPage() {
                           >
                             {formatLabel(appointment.status)}
                           </span>
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-slate-600">
-                          {appointment.leadId}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-slate-600">
-                          {appointment.propertyId}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-slate-600">
-                          {appointment.conversationId}
-                        </td>
-                        <td className="max-w-xs px-4 py-3 text-slate-600">
-                          <span className="line-clamp-2">
-                            {appointment.notes || "-"}
-                          </span>
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-slate-600">
-                          {formatDate(appointment.createdAt)}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3">
-                          <Link
-                            href={`/dashboard/conversations?conversationId=${appointment.conversationId}`}
-                            className="inline-flex rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-                          >
-                            Ver conversacion
-                          </Link>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          {isPendingRequest ? (
+                            <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-900">
+                              Pending visit request
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="mt-2 text-sm text-slate-600">
+                          Created {formatDate(appointment.createdAt)}
+                        </p>
+                      </div>
+
+                      <Link
+                        href={`/dashboard/conversations?conversationId=${appointment.conversationId}`}
+                        className="inline-flex w-fit rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-400 hover:bg-white"
+                      >
+                        Ver conversacion
+                      </Link>
+                    </div>
+
+                    <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1.2fr]">
+                      <div>
+                        <p className="text-xs font-medium uppercase text-slate-500">
+                          Lead
+                        </p>
+                        <p className="mt-1 font-medium text-slate-950">
+                          {lead
+                            ? lead.name
+                            : `Lead no encontrado (${shortenId(
+                                appointment.leadId,
+                              )})`}
+                        </p>
+                        <div className="mt-2 space-y-1 text-sm text-slate-600">
+                          <p>Telefono: {lead?.phone || "-"}</p>
+                          <p>Email: {lead?.email || "-"}</p>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-medium uppercase text-slate-500">
+                          Inmueble
+                        </p>
+                        <p className="mt-1 font-medium text-slate-950">
+                          {property
+                            ? property.title || shortenId(appointment.propertyId)
+                            : `Inmueble no encontrado (${shortenId(
+                                appointment.propertyId,
+                              )})`}
+                        </p>
+                        <p className="mt-2 text-sm text-slate-600">
+                          Zona/Ciudad: {formatLocation(property)}
+                        </p>
+                      </div>
+
+                      <div className="md:col-span-2 xl:col-span-1">
+                        <p className="text-xs font-medium uppercase text-slate-500">
+                          Notes
+                        </p>
+                        <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-600">
+                          {appointment.notes || "-"}
+                        </p>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>
