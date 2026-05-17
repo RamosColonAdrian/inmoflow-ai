@@ -2,7 +2,10 @@ package com.inmoflow.backend.ai.application;
 
 import com.inmoflow.backend.ai.api.AiSuggestedResponse;
 import com.inmoflow.backend.ai.domain.AiIntent;
+import com.inmoflow.backend.conversation.api.request.CreateMessageRequest;
 import com.inmoflow.backend.conversation.application.ConversationService;
+import com.inmoflow.backend.conversation.domain.Message;
+import com.inmoflow.backend.conversation.domain.SenderType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,5 +32,16 @@ public class AiAssistantMockService {
                 MOCK_CONFIDENCE,
                 false
         );
+    }
+
+    @Transactional
+    public Message sendResponse(UUID conversationId) {
+        CreateMessageRequest request = new CreateMessageRequest(
+                SenderType.BOT,
+                MOCK_RESPONSE,
+                true
+        );
+
+        return conversationService.addMessage(conversationId, request);
     }
 }
