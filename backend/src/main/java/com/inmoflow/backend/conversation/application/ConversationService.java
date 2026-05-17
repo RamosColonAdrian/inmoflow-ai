@@ -1,6 +1,6 @@
 package com.inmoflow.backend.conversation.application;
 
-import com.inmoflow.backend.ai.application.AiMockResponseProvider;
+import com.inmoflow.backend.ai.application.AiResponseGenerator;
 import com.inmoflow.backend.conversation.domain.Conversation;
 import com.inmoflow.backend.conversation.domain.Message;
 import com.inmoflow.backend.conversation.domain.SenderType;
@@ -22,7 +22,7 @@ public class ConversationService {
 
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
-    private final AiMockResponseProvider aiMockResponseProvider;
+    private final AiResponseGenerator aiResponseGenerator;
 
     @Transactional
     public Conversation create(CreateConversationCommand command) {
@@ -56,7 +56,7 @@ public class ConversationService {
         if (command.senderType() == SenderType.LEAD) {
             CreateMessageCommand aiResponseCommand = new CreateMessageCommand(
                     SenderType.BOT,
-                    aiMockResponseProvider.response(),
+                    aiResponseGenerator.generateResponse(command.content()),
                     true
             );
             saveMessage(conversationId, aiResponseCommand);
