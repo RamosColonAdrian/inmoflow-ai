@@ -3,6 +3,7 @@ package com.inmoflow.backend.appointment.application;
 import com.inmoflow.backend.appointment.domain.Appointment;
 import com.inmoflow.backend.appointment.domain.AppointmentStatus;
 import com.inmoflow.backend.appointment.infrastructure.AppointmentRepository;
+import com.inmoflow.backend.shared.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -43,6 +44,16 @@ public class AppointmentService {
         return Optional.of(create(command));
     }
 
+    @Transactional
+    public Appointment updateStatus(UUID appointmentId, String status) {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment not found: " + appointmentId));
+
+        appointment.updateStatus(parseStatus(status));
+
+        return appointmentRepository.save(appointment);
+    }
+
     @Transactional(readOnly = true)
     public Page<Appointment> findAll(Pageable pageable) {
         return appointmentRepository.findAll(pageable);
@@ -56,5 +67,13 @@ public class AppointmentService {
     @Transactional(readOnly = true)
     public List<Appointment> findByConversationId(UUID conversationId) {
         return appointmentRepository.findByConversationId(conversationId);
+    }
+
+    private AppointmentStatus parseStatus(String status) {
+        try {
+            return AppointmentStatus.valueOf(status);
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Invalid appointment status: " + status);
+        }
     }
 }

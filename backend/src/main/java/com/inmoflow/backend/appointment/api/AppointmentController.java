@@ -1,6 +1,7 @@
 package com.inmoflow.backend.appointment.api;
 
 import com.inmoflow.backend.appointment.api.request.CreateAppointmentRequest;
+import com.inmoflow.backend.appointment.api.request.UpdateAppointmentStatusRequest;
 import com.inmoflow.backend.appointment.api.response.AppointmentResponse;
 import com.inmoflow.backend.appointment.application.AppointmentService;
 import com.inmoflow.backend.appointment.application.CreateAppointmentCommand;
@@ -36,6 +37,14 @@ public class AppointmentController {
         );
 
         return AppointmentResponse.from(appointmentService.create(command));
+    }
+
+    @PatchMapping("/{appointmentId}/status")
+    public AppointmentResponse updateStatus(
+            @PathVariable UUID appointmentId,
+            @Valid @RequestBody UpdateAppointmentStatusRequest request
+    ) {
+        return AppointmentResponse.from(appointmentService.updateStatus(appointmentId, request.status()));
     }
 
     @GetMapping

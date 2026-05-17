@@ -66,4 +66,9 @@ public class Appointment {
     public void preUpdate() {
         updatedAt = LocalDateTime.now();
     }
+
+    public void updateStatus(AppointmentStatus status) {
+        this.status = status;
+        this.updatedAt = LocalDateTime.now();
+    }
 }
