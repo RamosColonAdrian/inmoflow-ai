@@ -2,6 +2,7 @@ package com.inmoflow.backend.agency.api;
 
 import com.inmoflow.backend.agency.api.request.CreateAgencyRequest;
 import com.inmoflow.backend.agency.api.response.AgencyResponse;
+import com.inmoflow.backend.agency.application.CreateAgencyCommand;
 import com.inmoflow.backend.agency.application.AgencyService;
 import com.inmoflow.backend.shared.api.PageResponse;
 import jakarta.validation.Valid;
@@ -22,7 +23,14 @@ public class AgencyController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public AgencyResponse create(@Valid @RequestBody CreateAgencyRequest request) {
-        return AgencyResponse.from(agencyService.create(request));
+        CreateAgencyCommand command = new CreateAgencyCommand(
+                request.name(),
+                request.email(),
+                request.phone(),
+                request.website()
+        );
+
+        return AgencyResponse.from(agencyService.create(command));
     }
 
     @GetMapping

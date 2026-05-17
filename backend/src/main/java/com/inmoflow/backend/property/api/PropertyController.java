@@ -2,6 +2,7 @@ package com.inmoflow.backend.property.api;
 
 import com.inmoflow.backend.property.api.request.CreatePropertyRequest;
 import com.inmoflow.backend.property.api.response.PropertyResponse;
+import com.inmoflow.backend.property.application.CreatePropertyCommand;
 import com.inmoflow.backend.property.application.PropertyService;
 import com.inmoflow.backend.shared.api.PageResponse;
 import jakarta.validation.Valid;
@@ -22,7 +23,24 @@ public class PropertyController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public PropertyResponse create(@Valid @RequestBody CreatePropertyRequest request) {
-        return PropertyResponse.from(propertyService.create(request));
+        CreatePropertyCommand command = new CreatePropertyCommand(
+                request.agencyId(),
+                request.reference(),
+                request.title(),
+                request.description(),
+                request.price(),
+                request.city(),
+                request.zone(),
+                request.address(),
+                request.rooms(),
+                request.bathrooms(),
+                request.squareMeters(),
+                request.propertyType(),
+                request.operationType(),
+                request.available()
+        );
+
+        return PropertyResponse.from(propertyService.create(command));
     }
 
     @GetMapping
