@@ -1,7 +1,9 @@
 package com.inmoflow.backend.conversation.application;
 
+import com.inmoflow.backend.ai.application.AiMockResponseProvider;
 import com.inmoflow.backend.conversation.domain.Conversation;
 import com.inmoflow.backend.conversation.domain.Message;
+import com.inmoflow.backend.conversation.domain.SenderType;
 import com.inmoflow.backend.conversation.infrastructure.ConversationRepository;
 import com.inmoflow.backend.conversation.infrastructure.MessageRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,7 @@ public class ConversationService {
 
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
+    private final AiMockResponseProvider aiMockResponseProvider;
 
     @Transactional
     public Conversation create(CreateConversationCommand command) {
@@ -48,6 +51,21 @@ public class ConversationService {
             throw new NoSuchElementException("Conversation not found: " + conversationId);
         }
 
+        Message message = saveMessage(conversationId, command);
+
+        if (command.senderType() == SenderType.LEAD) {
+            CreateMessageCommand aiResponseCommand = new CreateMessageCommand(
+                    SenderType.BOT,
+                    aiMockResponseProvider.response(),
+                    true
+            );
+            saveMessage(conversationId, aiResponseCommand);
+        }
+
+        return message;
+    }
+
+    private Message saveMessage(UUID conversationId, CreateMessageCommand command) {
         Message message = Message.builder()
                 .conversationId(conversationId)
                 .senderType(command.senderType())
