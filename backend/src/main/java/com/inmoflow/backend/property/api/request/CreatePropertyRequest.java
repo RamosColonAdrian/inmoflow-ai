@@ -50,6 +50,11 @@ public record CreatePropertyRequest(
         OperationType operationType,
 
         @NotNull(message = "Availability is required")
-        Boolean available
+        Boolean available,
+
+        @Size(max = 1000, message = "Source URL must not exceed 1000 characters")
+        String sourceUrl,
+
+        String qualificationRulesText
 ) {
 }

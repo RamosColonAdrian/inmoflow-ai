@@ -24,6 +24,8 @@ public record PropertyResponse(
         PropertyType propertyType,
         OperationType operationType,
         Boolean available,
+        String sourceUrl,
+        String qualificationRulesText,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
@@ -45,6 +47,8 @@ public record PropertyResponse(
                 property.getPropertyType(),
                 property.getOperationType(),
                 property.getAvailable(),
+                property.getSourceUrl(),
+                property.getQualificationRulesText(),
                 property.getCreatedAt(),
                 property.getUpdatedAt()
         );

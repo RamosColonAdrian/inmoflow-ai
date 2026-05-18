@@ -96,4 +96,21 @@ class LeadServiceTest {
         assertThat(updated.getStatus()).isEqualTo(LeadStatus.QUALIFIED);
         assertThat(updated.getScore()).isEqualTo(95);
     }
+
+    @Test
+    void marksQualificationMismatchAsNeedsHumanAndCapsScore() {
+        UUID leadId = UUID.randomUUID();
+        Lead lead = Lead.builder()
+                .id(leadId)
+                .status(LeadStatus.CONTACTED)
+                .score(80)
+                .build();
+        when(leadRepository.findById(leadId)).thenReturn(Optional.of(lead));
+        when(leadRepository.save(any(Lead.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Lead updated = leadService.markNeedsHumanForQualificationMismatch(leadId);
+
+        assertThat(updated.getStatus()).isEqualTo(LeadStatus.NEEDS_HUMAN);
+        assertThat(updated.getScore()).isEqualTo(40);
+    }
 }

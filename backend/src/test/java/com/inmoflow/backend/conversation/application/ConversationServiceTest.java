@@ -14,8 +14,12 @@ import com.inmoflow.backend.conversation.domain.SenderType;
 import com.inmoflow.backend.conversation.infrastructure.ConversationRepository;
 import com.inmoflow.backend.conversation.infrastructure.MessageRepository;
 import com.inmoflow.backend.lead.application.LeadService;
+import com.inmoflow.backend.lead.application.LeadQualificationService;
 import com.inmoflow.backend.lead.domain.Lead;
+import com.inmoflow.backend.lead.domain.LeadStatus;
 import com.inmoflow.backend.lead.infrastructure.LeadRepository;
+import com.inmoflow.backend.property.domain.Property;
+import com.inmoflow.backend.property.infrastructure.PropertyRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,6 +51,9 @@ class ConversationServiceTest {
     private LeadRepository leadRepository;
 
     @Mock
+    private PropertyRepository propertyRepository;
+
+    @Mock
     private LeadService leadService;
 
     @Mock
@@ -63,7 +70,9 @@ class ConversationServiceTest {
                 conversationRepository,
                 messageRepository,
                 leadRepository,
+                propertyRepository,
                 leadService,
+                new LeadQualificationService(),
                 aiResponseGenerator,
                 new ControlledVisitResponseGenerator(),
                 appointmentService
@@ -85,6 +94,7 @@ class ConversationServiceTest {
                 .build();
         when(conversationRepository.findById(conversationId)).thenReturn(Optional.of(conversation));
         when(leadRepository.findById(leadId)).thenReturn(Optional.of(lead));
+        when(propertyRepository.findById(propertyId)).thenReturn(Optional.empty());
         when(messageRepository.findTop10ByConversationIdOrderBySentAtDesc(conversationId)).thenReturn(List.of());
         when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> savedMessage(invocation.getArgument(0)));
         when(appointmentService.createRequestedIfAbsent(any(CreateAppointmentCommand.class)))
@@ -105,6 +115,103 @@ class ConversationServiceTest {
         assertThat(command.conversationId()).isEqualTo(conversationId);
         assertThat(command.requestedDateText()).isEqualTo("jueves por la tarde");
         assertThat(command.notes()).isEqualTo("Appointment requested automatically from lead message");
+        verify(leadService).qualifyForVisitRequest(leadId);
+    }
+
+    @Test
+    void asksForMoreInfoAndDoesNotCreateAppointmentWhenRulesAreMissingAnswers() {
+        UUID conversationId = UUID.randomUUID();
+        UUID leadId = UUID.randomUUID();
+        UUID propertyId = UUID.randomUUID();
+        Conversation conversation = conversation(conversationId, leadId);
+        Lead lead = lead(leadId, propertyId);
+        Property property = Property.builder()
+                .id(propertyId)
+                .qualificationRulesText("No mascotas. No estudiantes. Solo larga estancia. Se pide contrato laboral y nominas.")
+                .build();
+        when(conversationRepository.findById(conversationId)).thenReturn(Optional.of(conversation));
+        when(leadRepository.findById(leadId)).thenReturn(Optional.of(lead));
+        when(propertyRepository.findById(propertyId)).thenReturn(Optional.of(property));
+        when(messageRepository.findTop10ByConversationIdOrderBySentAtDesc(conversationId)).thenReturn(List.of());
+        when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> savedMessage(invocation.getArgument(0)));
+
+        conversationService.addMessage(conversationId, new CreateMessageCommand(
+                SenderType.LEAD,
+                "Hola, quiero visitar el piso el jueves por la tarde.",
+                false
+        ));
+
+        verify(appointmentService, never()).createRequestedIfAbsent(any(CreateAppointmentCommand.class));
+        verify(leadService).markContactedForVisitInterest(leadId);
+        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+        verify(messageRepository, org.mockito.Mockito.times(2)).save(messageCaptor.capture());
+        Message botMessage = messageCaptor.getAllValues().get(1);
+        assertThat(botMessage.getContent()).contains("jueves por la tarde");
+        assertThat(botMessage.getContent()).contains("si tienes mascotas");
+        assertThat(botMessage.getContent()).contains("si eres estudiante");
+        assertThat(botMessage.getContent()).contains("si buscas una estancia de larga duracion");
+        assertThat(botMessage.getContent()).contains("si dispones de contrato laboral");
+    }
+
+    @Test
+    void explainsMismatchAndDoesNotCreateAppointmentWhenRulesAreNotSatisfied() {
+        UUID conversationId = UUID.randomUUID();
+        UUID leadId = UUID.randomUUID();
+        UUID propertyId = UUID.randomUUID();
+        Conversation conversation = conversation(conversationId, leadId);
+        Lead lead = lead(leadId, propertyId);
+        Property property = Property.builder()
+                .id(propertyId)
+                .qualificationRulesText("No mascotas.")
+                .build();
+        when(conversationRepository.findById(conversationId)).thenReturn(Optional.of(conversation));
+        when(leadRepository.findById(leadId)).thenReturn(Optional.of(lead));
+        when(propertyRepository.findById(propertyId)).thenReturn(Optional.of(property));
+        when(messageRepository.findTop10ByConversationIdOrderBySentAtDesc(conversationId)).thenReturn(List.of());
+        when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> savedMessage(invocation.getArgument(0)));
+
+        conversationService.addMessage(conversationId, new CreateMessageCommand(
+                SenderType.LEAD,
+                "Tengo un perro y quiero visitar el piso el jueves por la tarde.",
+                false
+        ));
+
+        verify(appointmentService, never()).createRequestedIfAbsent(any(CreateAppointmentCommand.class));
+        verify(leadService).markNeedsHumanForQualificationMismatch(leadId);
+        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+        verify(messageRepository, org.mockito.Mockito.times(2)).save(messageCaptor.capture());
+        Message botMessage = messageCaptor.getAllValues().get(1);
+        assertThat(botMessage.getContent()).contains("Gracias por tu interes");
+        assertThat(botMessage.getContent()).contains("no se aceptarian mascotas");
+        assertThat(botMessage.getContent()).contains("un agente puede revisar tu caso");
+    }
+
+    @Test
+    void createsAppointmentWhenLeadMatchesPropertyRules() {
+        UUID conversationId = UUID.randomUUID();
+        UUID leadId = UUID.randomUUID();
+        UUID propertyId = UUID.randomUUID();
+        Conversation conversation = conversation(conversationId, leadId);
+        Lead lead = lead(leadId, propertyId);
+        Property property = Property.builder()
+                .id(propertyId)
+                .qualificationRulesText("No mascotas. No estudiantes. Solo larga estancia. Se pide contrato laboral y nominas.")
+                .build();
+        when(conversationRepository.findById(conversationId)).thenReturn(Optional.of(conversation));
+        when(leadRepository.findById(leadId)).thenReturn(Optional.of(lead));
+        when(propertyRepository.findById(propertyId)).thenReturn(Optional.of(property));
+        when(messageRepository.findTop10ByConversationIdOrderBySentAtDesc(conversationId)).thenReturn(List.of());
+        when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> savedMessage(invocation.getArgument(0)));
+        when(appointmentService.createRequestedIfAbsent(any(CreateAppointmentCommand.class)))
+                .thenReturn(Optional.of(Appointment.builder().id(UUID.randomUUID()).build()));
+
+        conversationService.addMessage(conversationId, new CreateMessageCommand(
+                SenderType.LEAD,
+                "Sin mascotas, no soy estudiante, busco larga estancia y tengo contrato laboral. Quiero visitar el piso el jueves por la tarde.",
+                false
+        ));
+
+        verify(appointmentService).createRequestedIfAbsent(any(CreateAppointmentCommand.class));
         verify(leadService).qualifyForVisitRequest(leadId);
     }
 
@@ -164,6 +271,16 @@ class ConversationServiceTest {
                 .leadId(leadId)
                 .channel(ConversationChannel.WHATSAPP)
                 .status(ConversationStatus.OPEN)
+                .build();
+    }
+
+    private Lead lead(UUID leadId, UUID propertyId) {
+        return Lead.builder()
+                .id(leadId)
+                .agencyId(UUID.randomUUID())
+                .propertyId(propertyId)
+                .phone("600123123")
+                .status(LeadStatus.NEW)
                 .build();
     }
 

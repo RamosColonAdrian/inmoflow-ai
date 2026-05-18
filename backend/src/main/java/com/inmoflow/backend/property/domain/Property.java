@@ -40,7 +40,7 @@ public class Property {
     @Column(length = 120)
     private String zone;
 
-    @Column(length = 255)
+    @Column()
     private String address;
 
     private Integer rooms;
@@ -60,6 +60,12 @@ public class Property {
 
     @Column(nullable = false)
     private Boolean available;
+
+    @Column(name = "source_url", length = 1000)
+    private String sourceUrl;
+
+    @Column(name = "qualification_rules_text", columnDefinition = "TEXT")
+    private String qualificationRulesText;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;

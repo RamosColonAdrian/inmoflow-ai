@@ -53,9 +53,9 @@ export type Property = {
   reference: string;
   title: string;
   description: string | null;
-  price: number | string;
-  city: string;
-  zone: string;
+  price: number | string | null;
+  city: string | null;
+  zone: string | null;
   address: string | null;
   rooms: number | null;
   bathrooms: number | null;
@@ -63,6 +63,8 @@ export type Property = {
   propertyType: PropertyType;
   operationType: OperationType;
   available: boolean;
+  sourceUrl: string | null;
+  qualificationRulesText: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -164,6 +166,21 @@ export const apiClient = {
   getProperties(page = 0, size = 20) {
     return request<PageResponse<Property>>(
       `/api/properties?page=${page}&size=${size}`,
+    );
+  },
+  updatePropertyQualificationRules(
+    propertyId: string,
+    qualificationRulesText: string,
+  ) {
+    return request<Property>(
+      `/api/properties/${propertyId}/qualification-rules`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ qualificationRulesText }),
+      },
     );
   },
   getConversations(page = 0, size = 20) {

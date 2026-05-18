@@ -12,8 +12,13 @@ import com.inmoflow.backend.conversation.domain.SenderType;
 import com.inmoflow.backend.conversation.infrastructure.ConversationRepository;
 import com.inmoflow.backend.conversation.infrastructure.MessageRepository;
 import com.inmoflow.backend.lead.application.LeadService;
+import com.inmoflow.backend.lead.application.LeadQualificationService;
+import com.inmoflow.backend.lead.application.PropertyRuleEvaluation;
+import com.inmoflow.backend.lead.application.PropertyRuleEvaluationResult;
 import com.inmoflow.backend.lead.domain.Lead;
 import com.inmoflow.backend.lead.infrastructure.LeadRepository;
+import com.inmoflow.backend.property.domain.Property;
+import com.inmoflow.backend.property.infrastructure.PropertyRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -36,7 +41,9 @@ public class ConversationService {
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
     private final LeadRepository leadRepository;
+    private final PropertyRepository propertyRepository;
     private final LeadService leadService;
+    private final LeadQualificationService leadQualificationService;
     private final AiResponseGenerator aiResponseGenerator;
     private final ControlledVisitResponseGenerator controlledVisitResponseGenerator;
     private final AppointmentService appointmentService;
@@ -72,15 +79,10 @@ public class ConversationService {
         if (command.senderType() == SenderType.LEAD) {
             AiResponseContext context = buildAiResponseContext(conversation, message);
             Optional<ControlledVisitResponse> controlledVisitResponse = controlledVisitResponseGenerator.generate(context);
-            CreateMessageCommand aiResponseCommand = new CreateMessageCommand(
-                    SenderType.BOT,
-                    controlledVisitResponse
-                            .map(ControlledVisitResponse::response)
-                            .orElseGet(() -> aiResponseGenerator.generateResponse(context)),
-                    true
-            );
-            saveMessage(conversationId, aiResponseCommand);
-            controlledVisitResponse.ifPresent(response -> handleVisitInterest(conversation, context.lead(), response));
+            String botResponse = controlledVisitResponse
+                    .map(response -> handleControlledVisitResponse(conversation, context.lead(), response, context.leadMessage()))
+                    .orElseGet(() -> aiResponseGenerator.generateResponse(context));
+            saveMessage(conversationId, new CreateMessageCommand(SenderType.BOT, botResponse, true));
         }
 
         return message;
@@ -107,14 +109,31 @@ public class ConversationService {
         return new AiResponseContext(leadMessage.getContent(), lead, recentMessages);
     }
 
-    private void handleVisitInterest(Conversation conversation, Lead lead, ControlledVisitResponse response) {
+    private String handleControlledVisitResponse(Conversation conversation, Lead lead, ControlledVisitResponse response, String leadMessage) {
         if (lead == null) {
-            return;
+            return response.response();
         }
 
         if (!response.hasRequestedDateText()) {
             leadService.markContactedForVisitInterest(lead.getId());
-            return;
+            return response.response();
+        }
+
+        Optional<Property> property = loadRelatedProperty(lead);
+        String qualificationRulesText = property
+                .map(Property::getQualificationRulesText)
+                .orElse(null);
+
+        if (hasText(qualificationRulesText)) {
+            PropertyRuleEvaluation evaluation = leadQualificationService.evaluate(qualificationRulesText, leadMessage);
+            if (evaluation.result() == PropertyRuleEvaluationResult.NEEDS_MORE_INFO) {
+                leadService.markContactedForVisitInterest(lead.getId());
+                return qualificationInfoRequestResponse(response.requestedDateText(), evaluation);
+            }
+            if (evaluation.result() == PropertyRuleEvaluationResult.MISMATCH) {
+                leadService.markNeedsHumanForQualificationMismatch(lead.getId());
+                return qualificationMismatchResponse(evaluation);
+            }
         }
 
         CreateAppointmentCommand command = new CreateAppointmentCommand(
@@ -128,6 +147,42 @@ public class ConversationService {
 
         appointmentService.createRequestedIfAbsent(command)
                 .ifPresent(appointment -> leadService.qualifyForVisitRequest(lead.getId()));
+        return response.response();
+    }
+
+    private Optional<Property> loadRelatedProperty(Lead lead) {
+        if (lead.getPropertyId() == null) {
+            return Optional.empty();
+        }
+        return propertyRepository.findById(lead.getPropertyId());
+    }
+
+    private String qualificationInfoRequestResponse(String requestedDateText, PropertyRuleEvaluation evaluation) {
+        return "Perfecto, he anotado que te vendria bien " + requestedDateText
+                + ". Antes de pasar la solicitud al agente, para este inmueble se solicitan algunas condiciones. "
+                + "Podrias confirmarme " + joinQuestions(evaluation.missingQuestions()) + "?";
+    }
+
+    private String qualificationMismatchResponse(PropertyRuleEvaluation evaluation) {
+        return "Gracias por tu interes. Te comento que este inmueble tiene algunas condiciones del propietario y, en principio, "
+                + evaluation.mismatchMessage()
+                + ". Si quieres, un agente puede revisar tu caso igualmente.";
+    }
+
+    private String joinQuestions(List<String> questions) {
+        if (questions.isEmpty()) {
+            return "si cumples las condiciones del inmueble";
+        }
+        if (questions.size() == 1) {
+            return questions.getFirst();
+        }
+        return String.join(", ", questions.subList(0, questions.size() - 1))
+                + " y "
+                + questions.getLast();
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     @Transactional(readOnly = true)

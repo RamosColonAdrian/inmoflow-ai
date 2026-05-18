@@ -18,6 +18,7 @@ public class LeadService {
 
     private static final int VISIT_INTEREST_SCORE = 70;
     private static final int QUALIFIED_VISIT_SCORE = 90;
+    private static final int MISMATCH_SCORE = 40;
 
     private final LeadRepository leadRepository;
 
@@ -63,6 +64,14 @@ public class LeadService {
         return leadRepository.save(lead);
     }
 
+    @Transactional
+    public Lead markNeedsHumanForQualificationMismatch(UUID leadId) {
+        Lead lead = findByIdOrThrow(leadId);
+        lead.setStatus(LeadStatus.NEEDS_HUMAN);
+        lead.setScore(minScore(lead.getScore(), MISMATCH_SCORE));
+        return leadRepository.save(lead);
+    }
+
     private Lead findByIdOrThrow(UUID leadId) {
         return leadRepository.findById(leadId)
                 .orElseThrow(() -> new NoSuchElementException("Lead not found: " + leadId));
@@ -73,5 +82,12 @@ public class LeadService {
             return minimumScore;
         }
         return Math.max(currentScore, minimumScore);
+    }
+
+    private int minScore(Integer currentScore, int maximumScore) {
+        if (currentScore == null) {
+            return maximumScore;
+        }
+        return Math.min(currentScore, maximumScore);
     }
 }

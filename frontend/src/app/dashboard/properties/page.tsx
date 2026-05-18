@@ -15,6 +15,8 @@ const columns = [
   "Property type",
   "Operation",
   "Available",
+  "Rules",
+  "Actions",
 ];
 
 function formatLabel(value: string) {
@@ -25,7 +27,11 @@ function formatLabel(value: string) {
     .join(" ");
 }
 
-function formatPrice(value: number | string) {
+function formatPrice(value: number | string | null) {
+  if (value === null) {
+    return "-";
+  }
+
   const amount = typeof value === "string" ? Number(value) : value;
 
   if (!Number.isFinite(amount)) {
@@ -43,6 +49,10 @@ export default function PropertiesPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editingProperty, setEditingProperty] = useState<Property | null>(null);
+  const [rulesDraft, setRulesDraft] = useState("");
+  const [isSavingRules, setIsSavingRules] = useState(false);
+  const [rulesError, setRulesError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -78,6 +88,54 @@ export default function PropertiesPage() {
       isMounted = false;
     };
   }, []);
+
+  function openRulesEditor(property: Property) {
+    setEditingProperty(property);
+    setRulesDraft(property.qualificationRulesText ?? "");
+    setRulesError(null);
+  }
+
+  function closeRulesEditor() {
+    if (isSavingRules) {
+      return;
+    }
+
+    setEditingProperty(null);
+    setRulesDraft("");
+    setRulesError(null);
+  }
+
+  async function saveRules() {
+    if (!editingProperty) {
+      return;
+    }
+
+    try {
+      setIsSavingRules(true);
+      setRulesError(null);
+
+      const updatedProperty = await apiClient.updatePropertyQualificationRules(
+        editingProperty.id,
+        rulesDraft,
+      );
+
+      setProperties((currentProperties) =>
+        currentProperties.map((property) =>
+          property.id === updatedProperty.id ? updatedProperty : property,
+        ),
+      );
+      setEditingProperty(null);
+      setRulesDraft("");
+    } catch (saveError) {
+      setRulesError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Unable to save qualification rules.",
+      );
+    } finally {
+      setIsSavingRules(false);
+    }
+  }
 
   return (
     <DashboardShell
@@ -174,6 +232,28 @@ export default function PropertiesPage() {
                           {property.available ? "Available" : "Unavailable"}
                         </span>
                       </td>
+                      <td className="whitespace-nowrap px-4 py-3">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                            property.qualificationRulesText?.trim()
+                              ? "bg-sky-100 text-sky-800"
+                              : "bg-slate-100 text-slate-700"
+                          }`}
+                        >
+                          {property.qualificationRulesText?.trim()
+                            ? "Reglas añadidas"
+                            : "Sin reglas"}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => openRulesEditor(property)}
+                          className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                        >
+                          Editar reglas
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -182,6 +262,72 @@ export default function PropertiesPage() {
           )}
         </section>
       </section>
+
+      {editingProperty ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4 py-6">
+          <div className="w-full max-w-2xl rounded-lg bg-white shadow-xl">
+            <div className="border-b border-slate-200 px-6 py-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Reglas internas
+              </p>
+              <h3 className="mt-1 text-lg font-semibold text-slate-950">
+                {editingProperty.title}
+              </h3>
+            </div>
+
+            <div className="px-6 py-5">
+              <label
+                htmlFor="qualification-rules"
+                className="text-sm font-medium text-slate-700"
+              >
+                Reglas de cualificación
+              </label>
+              <textarea
+                id="qualification-rules"
+                value={rulesDraft}
+                onChange={(event) => setRulesDraft(event.target.value)}
+                rows={8}
+                className="mt-2 w-full resize-y rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-950 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                placeholder="No mascotas. No estudiantes. Solo larga estancia. Se pide contrato laboral y nóminas."
+              />
+
+              {editingProperty.qualificationRulesText?.trim() ? (
+                <div className="mt-4 rounded-md bg-slate-50 p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                    Reglas actuales
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">
+                    {editingProperty.qualificationRulesText}
+                  </p>
+                </div>
+              ) : null}
+
+              {rulesError ? (
+                <p className="mt-3 text-sm text-red-700">{rulesError}</p>
+              ) : null}
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
+              <button
+                type="button"
+                onClick={closeRulesEditor}
+                disabled={isSavingRules}
+                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={saveRules}
+                disabled={isSavingRules}
+                className="rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSavingRules ? "Guardando..." : "Guardar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </DashboardShell>
   );
 }

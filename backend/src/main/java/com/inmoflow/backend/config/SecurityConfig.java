@@ -19,7 +19,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .csrf(csrf -> csrf.disable())
+                .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/health").permitAll()
 
@@ -28,6 +28,8 @@ public class SecurityConfig {
 
                         .requestMatchers(HttpMethod.GET, "/api/properties", "/api/properties/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/properties", "/api/properties/**").permitAll()
+                        .requestMatchers(HttpMethod.PATCH, "/api/properties", "/api/properties/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/property-imports", "/api/property-imports/**").permitAll()
 
                         .requestMatchers(HttpMethod.GET, "/api/leads", "/api/leads/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/leads", "/api/leads/**").permitAll()

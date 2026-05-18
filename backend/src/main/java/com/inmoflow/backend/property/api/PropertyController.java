@@ -1,6 +1,7 @@
 package com.inmoflow.backend.property.api;
 
 import com.inmoflow.backend.property.api.request.CreatePropertyRequest;
+import com.inmoflow.backend.property.api.request.UpdateQualificationRulesRequest;
 import com.inmoflow.backend.property.api.response.PropertyResponse;
 import com.inmoflow.backend.property.application.CreatePropertyCommand;
 import com.inmoflow.backend.property.application.PropertyService;
@@ -10,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/properties")
@@ -37,7 +40,9 @@ public class PropertyController {
                 request.squareMeters(),
                 request.propertyType(),
                 request.operationType(),
-                request.available()
+                request.available(),
+                request.sourceUrl(),
+                request.qualificationRulesText()
         );
 
         return PropertyResponse.from(propertyService.create(command));
@@ -50,6 +55,17 @@ public class PropertyController {
     ) {
         return PageResponse.from(propertyService.findAll(pageRequest(page, size))
                 .map(PropertyResponse::from));
+    }
+
+    @PatchMapping("/{propertyId}/qualification-rules")
+    public PropertyResponse updateQualificationRules(
+            @PathVariable UUID propertyId,
+            @Valid @RequestBody UpdateQualificationRulesRequest request
+    ) {
+        return PropertyResponse.from(propertyService.updateQualificationRules(
+                propertyId,
+                request.qualificationRulesText()
+        ));
     }
 
     private PageRequest pageRequest(int page, int size) {

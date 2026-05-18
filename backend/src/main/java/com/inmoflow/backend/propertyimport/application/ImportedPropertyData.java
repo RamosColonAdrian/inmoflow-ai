@@ -1,13 +1,11 @@
-package com.inmoflow.backend.property.application;
+package com.inmoflow.backend.propertyimport.application;
 
 import com.inmoflow.backend.property.domain.OperationType;
 import com.inmoflow.backend.property.domain.PropertyType;
 
 import java.math.BigDecimal;
-import java.util.UUID;
 
-public record CreatePropertyCommand(
-        UUID agencyId,
+public record ImportedPropertyData(
         String reference,
         String title,
         String description,
@@ -21,7 +19,6 @@ public record CreatePropertyCommand(
         PropertyType propertyType,
         OperationType operationType,
         Boolean available,
-        String sourceUrl,
-        String qualificationRulesText
+        String sourceUrl
 ) {
 }
